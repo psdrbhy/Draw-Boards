@@ -18,10 +18,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* 把认证包裹所有的路由页面 */}
-        {/* <ConvexClientProvider> */}
+        <ConvexClientProvider>
           {children}
-        {/* </ConvexClientProvider> */}
+        </ConvexClientProvider>
       </body>
     </html>
   );

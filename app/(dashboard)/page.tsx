@@ -1,7 +1,10 @@
+"use client"
+
 const DashboardPage = () => {
     return (
         <div>
-            Dashboard Root page
+            Dashboard Root pagefdsafds
+            
         </div>
     )
 }

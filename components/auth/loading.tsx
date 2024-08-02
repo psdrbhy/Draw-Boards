@@ -9,7 +9,6 @@ export const Loading = () => {
                 height={120}
                 className="animate-pulse duration-700"
             >
-
             </Image>
         </div>
     )
