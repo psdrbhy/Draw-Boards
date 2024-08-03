@@ -23,7 +23,7 @@ export const OrgSidebar = () => {
             <Link href="/">
                 <div className='flex items-center gap-x-2' >
                     <Image
-                        src="/vercel.svg"
+                        src="/logo.svg"
                         alt="Logo"
                         height={60}
                         width={60}
