@@ -2,9 +2,11 @@
 // board组件
 import Link from 'next/link'
 import Image from 'next/image'
-import { Overlay } from './overlay';
 import {formatDistanceToNow} from 'date-fns'
 import { useAuth } from '@clerk/nextjs';
+import { Skeleton } from '@/components/ui/skeleton';
+
+import { Overlay } from './overlay';
 import { Footer } from './footer';
 interface BoardCardProps{
     id: string,
@@ -56,5 +58,15 @@ export const BoardCard = ({
                 />
             </div>
         </Link>
+    )
+}
+
+BoardCard.Skeleton = function BoardCardSkeleton() {
+    return (
+        <div className='aspect-[100/127] rounded-lg overflow-hidden'>
+            <Skeleton className='h-full w-full '>
+
+            </Skeleton>
+        </div>
     )
 }
