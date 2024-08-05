@@ -19,7 +19,7 @@ interface BoardListProps {
 export const BoardList = ({ orgId, query }: BoardListProps) => {
   // 获取boards
   const data = useQuery(api.boards.get, { orgId });
-  // undefined说明是还没加载，如果是没有会是null
+  // undefined说明是还没加载（所以在这里给他添加骨架屏），如果是没有的话结果会是null
   if (data === undefined) {
     return (
       <div>
@@ -36,15 +36,19 @@ export const BoardList = ({ orgId, query }: BoardListProps) => {
       </div>
     );
   }
+  // 搜索无结果
   if (!data?.length && query.search) {
     return <EmptySearch />;
   }
+  // 收藏无结果
   if (!data?.length && query.favorites) {
     return <EmptyFavorites />;
   }
+  // 无画板
   if (!data?.length) {
     return <EmptyBoards />;
   }
+  // 否则就正常渲染
   return (
     <div>
       <h2 className="text-3xl">
