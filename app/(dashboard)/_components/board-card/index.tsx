@@ -46,9 +46,9 @@ export const BoardCard = ({
     const { mutate:onUnFavorite, pending:pendingUnFavorite } = useApiMutation(api.board.unfavorite);
     const toggleFavorite = () => {
         if (isFavorite) {
-            onFavorite({id}).catch(()=>toast.error("取消收藏失败！"))
+            onUnFavorite({id}).then(()=>toast.success("取消收藏成功！")).catch(()=>toast.error("取消收藏失败！"))
         } else {
-            onUnFavorite({id,orgId}).catch(()=>toast.error("收藏失败！"))
+            onFavorite({id,orgId}).then(()=>toast.success("收藏成功！")).catch(()=>toast.error("收藏失败！"))
         }
     }
     return (
