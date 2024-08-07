@@ -6,10 +6,12 @@ import { toast } from 'sonner'
 import { api } from '@/convex/_generated/api'
 import { useOrganization } from '@clerk/nextjs'
 import { useApiMutation } from '@/hooks/use-api-mutation'
+import { useRouter } from 'next/navigation'
 
 
 export const EmptyBoards = () => {
-    // 在这里进行创建表和初始化数据
+    // 在这里进行创建表和初始化数据 
+    const router = useRouter()
     const {mutate,pending} = useApiMutation(api.board.create)
     const { organization } = useOrganization()
     const onClick = () => {
@@ -17,8 +19,9 @@ export const EmptyBoards = () => {
         mutate({
             orgId: organization.id,
             title:"Untitled"
-        }).then(() => {
+        }).then((id) => {
             toast.success("Board created")
+            router.push(`/board/${id}`)
         }).catch(() => {
             toast.error("Failed to create board")
         })
