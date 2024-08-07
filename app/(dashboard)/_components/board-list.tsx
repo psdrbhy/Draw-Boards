@@ -18,7 +18,7 @@ interface BoardListProps {
 
 export const BoardList = ({ orgId, query }: BoardListProps) => {
   // 获取boards
-  const data = useQuery(api.boards.get, { orgId });
+  const data = useQuery(api.boards.get, { orgId,...query });
   // undefined说明是还没加载（所以在这里给他添加骨架屏），如果是没有的话结果会是null
   if (data === undefined) {
     return (
@@ -66,7 +66,7 @@ export const BoardList = ({ orgId, query }: BoardListProps) => {
             authorName={board.authorName}
             createdAt={board._creationTime}
             orgId={board.orgId}
-            isFavorite={false}
+            isFavorite={board.isFavorite}
           />
         ))}
       </div>

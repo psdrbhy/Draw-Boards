@@ -70,7 +70,7 @@ export const Actions = ({
             disabled={pending}
             onConfirm={onDelete}
           >
-            <Button
+            <Button //这里使用button好像会有渲染问题，因为button夹button了，但是这里不使用button会和confirm中的dialog冲突
               variant="ghost"
               className="w-full p-3 cursor-pointer text-sm justify-start font-normal"
             >

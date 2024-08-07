@@ -4,7 +4,7 @@ import { useOrganization } from "@clerk/nextjs";
 import { EmptyOrg } from "./_components/empty-org";
 import { BoardList } from "./_components/board-list";
 
-// nextJs会对searchParams自动填充query信息
+// nextJs会对searchParams自动填充query信息,也就是路由信息，在这里直接作为search的信息
 interface DashboardPageProps {
     searchParams: {
         search?: string,

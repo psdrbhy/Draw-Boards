@@ -1,6 +1,5 @@
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-// 页脚组件
 interface FooterProps {
   title: string;
   authorLabel: string;
@@ -17,6 +16,11 @@ export const Footer = ({
   onClick,
   disabled,
 }: FooterProps) => {
+  const handClick = (event:React.MouseEvent<HTMLButtonElement,MouseEvent>) => {
+    event.stopPropagation()
+    event.preventDefault()
+    onClick()
+  }
   return (
     <div className="relative bg-white p-3">
       <p className="text-[13px] truncate max-w-[calc(100%-20px)]">{title}</p>
@@ -26,7 +30,7 @@ export const Footer = ({
       </p>
       <button
         disabled={disabled}
-        onClick={onClick}
+        onClick={handClick}
         className={cn(
           "opacity-0 group-hover:opacity-100 transition absolute top-3 right-3 text-muted-foreground hover:text-blue-600",
           disabled && "cursor-not-allowed opacity-75"

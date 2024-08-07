@@ -9,9 +9,9 @@ import { useApiMutation } from '@/hooks/use-api-mutation'
 
 
 export const EmptyBoards = () => {
+    // 在这里进行创建表和初始化数据
     const {mutate,pending} = useApiMutation(api.board.create)
     const { organization } = useOrganization()
-    // 在这里进行创建表和初始化数据
     const onClick = () => {
         if (!organization) return;
         mutate({
