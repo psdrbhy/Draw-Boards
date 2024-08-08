@@ -9,7 +9,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
 import { ConfirmModel } from "./confirm-model";
@@ -47,7 +46,6 @@ export const Actions = ({
       .catch(() => toast.error("Failed to delete the board"));
   };
   return (
-    <div className="absolute top-1 z-50 right-1">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent
@@ -80,6 +78,5 @@ export const Actions = ({
           </ConfirmModel>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
-  );
+  )
 };
