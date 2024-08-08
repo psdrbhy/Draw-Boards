@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-
+// 全局重命名组件状态管理
 const defaultValues = { id: '', title: '' }
 
 interface IRenameModal {
