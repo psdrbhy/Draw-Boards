@@ -12,6 +12,7 @@ import { connectionIdToColor, pointerEventToCanvasPoint } from "@/lib/utils"
 import {nanoid} from 'nanoid'
 import { LiveObject } from "@liveblocks/client"
 import { LayerPreview } from './layer-preview'
+import { SelectionBox } from "./selection-box"
 
 const MAX_LAYERS = 100;
 interface CanvasProps {
@@ -156,9 +157,9 @@ export const Canvas = ({
         mode: CanvasMode.Translating,
         current: point,
       })
-    },[setCanvasState, camera, history, canvasState.mode])
+    }, [setCanvasState, camera, history, canvasState.mode])
+    // 获取其他人的selection(除了自己)
     const selections = useOthersMapped((other) => other.presence.selection)
-    console.log(selections,"selectionsselectionsselectionsselectionsselections")
     //当点击一个图层selection变化，然后layerIdsToColorSelection进行计算，改变selectionColor，实现点击改变图层stroke颜色
     // 计算出一个layerIdsToColorSelection对象，里面是layerId对应的随机颜色值（基于connectionId）
     const layerIdsToColorSelection = useMemo(() => {
@@ -212,6 +213,9 @@ export const Canvas = ({
 
                         />
                     ))}
+                    <SelectionBox
+                        onResizeHandlePointerDown={()=>{}}
+                    />
                     <CursorsPresence/>
                 </g>
             </svg>
