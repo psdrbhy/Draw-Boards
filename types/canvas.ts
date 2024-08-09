@@ -8,7 +8,7 @@ export type Camera = {
   x: number;
   y: number;
 };
-
+// 图层类型
 export enum LayerType {
   Rectangle,
   Ellipse,
@@ -16,7 +16,13 @@ export enum LayerType {
   Text,
   Note,
 }
-
+export type Layer =
+  | RectangleLayer
+  | EllipseLayer
+  | PathLayer
+  | TextLayer
+  | NoteLayer;
+// 不同图层需要的参数
 export type RectangleLayer = {
   type: LayerType.Rectangle;
   x: number;
@@ -67,26 +73,26 @@ export type NoteLayer = {
   fill: Color;
   value?: string;
 };
-
+// x轴y轴
 export type Point = {
   x: number;
   y: number;
 };
-
+// x轴y轴以及长宽
 export type XYWH = {
   x: number;
   y: number;
   width: number;
   height: number;
 };
-
+// 图层的边
 export enum Side {
   Top = 1,
   Bottom = 2,
   Left = 4,
   Right = 8,
 }
-
+// 画布每种模式下的数据状态
 export type CanvasState =
   | {
       mode: CanvasMode.None;
@@ -120,9 +126,9 @@ export type CanvasState =
   | {
       mode: CanvasMode.Pencil;
     };
-// 定义画布的状态
+// 定义画布不同的操作模式
 export enum CanvasMode {
-  None, //空闲 
+  None, //空闲
   Pressing, //按压
   SelectionNet, //选择框
   Translating, //平移
@@ -130,10 +136,3 @@ export enum CanvasMode {
   Resizing, //调整大小
   Pencil, //笔绘制
 }
-
-export type Layer =
-  | RectangleLayer
-  | EllipseLayer
-  | PathLayer
-  | TextLayer
-  | NoteLayer;

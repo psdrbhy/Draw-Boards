@@ -4,9 +4,11 @@
 import { Info } from "./info"
 import { Participants } from "./participant"
 import { Toolbar } from './toolbar'
-import { useState } from "react"
-import { CanvasMode, CanvasState } from "@/types/canvas"
-import { useHistory,useCanRedo,useCanUndo } from "@/liveblocks.config";
+import { useCallback, useState } from "react"
+import { Camera, CanvasMode, CanvasState } from "@/types/canvas"
+import { useHistory,useCanRedo,useCanUndo,useMutation } from "@/liveblocks.config";
+import { CursorsPresence } from "./cursors-presence"
+import { pointerEventToCanvasPoint } from "@/lib/utils"
 interface CanvasProps {
     boardId:string
 }
@@ -16,11 +18,35 @@ export const Canvas = ({
 }: CanvasProps) => {
     // 设置画板状态
     const [canvasState, setCanvasState] = useState<CanvasState>({
-        mode:CanvasMode.None
+        mode: CanvasMode.None
     })
+    // 初始化相机状态
+    const [camera,setCamera] = useState<Camera>({x:0,y:0})
+
     const canUndo = useCanUndo()
     const canRedo = useCanRedo()
     const history = useHistory()
+    // 鼠标滚轮
+    const onWheel = useCallback((e: React.WheelEvent) => {
+        // 更新
+        setCamera(() => ({
+            x: camera.x - e.deltaX,
+            y:camera.y - e.deltaY
+        }))
+    }, [])
+    // 鼠标滑动
+    const onPointerMove = useMutation(
+        ({ setMyPresence }, e: React.PointerEvent) => {
+            e.preventDefault()
+            const current = pointerEventToCanvasPoint(e, camera)
+            // 更新Camera位置
+            setMyPresence({cursor:current})
+
+        },[]
+  
+    )
+
+
     return (
         <main
             className="h-full w-full relative bg-neutral-100 touch-none"
@@ -36,6 +62,16 @@ export const Canvas = ({
                 redo={history.redo}
 
             />
+            {/* 绘制板 */}
+            <svg
+                className="h-[100vh] w-[100vw]"
+                onWheel={onWheel}
+                onPointerMove={onPointerMove}
+            >
+                <g>
+                    <CursorsPresence/>
+                </g>
+            </svg>
         </main>
     )
 }
