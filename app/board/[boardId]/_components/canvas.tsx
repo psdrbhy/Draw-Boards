@@ -43,9 +43,11 @@ export const Canvas = ({
             setMyPresence({cursor:current})
 
         },[]
-  
     )
-
+    //鼠标离开（当鼠标离开当前页的时候，置空）
+    const onPointLeave = useMutation(({setMyPresence}) => {
+        setMyPresence({cursor:null})
+    },[])
 
     return (
         <main
@@ -67,6 +69,7 @@ export const Canvas = ({
                 className="h-[100vh] w-[100vw]"
                 onWheel={onWheel}
                 onPointerMove={onPointerMove}
+                onPointerLeave={onPointLeave}
             >
                 <g>
                     <CursorsPresence/>
