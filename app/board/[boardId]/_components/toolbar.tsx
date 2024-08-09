@@ -31,12 +31,12 @@ export const Toolbar = ({
   return (
     <div className="absolute top-[50%] -translate-y-[50%] left-2 flex flex-col gap-y-4">
       <div className="bg-white rounded-md p-1.5 flex gap-y-1 flex-col items-center shadow-md">
+        {/* 通过点击改变状态然后改变isActive */}
         <ToolButton
           label="select"
           icon={MousePointer2}
           onClick={() => setCanvasState({mode:CanvasMode.None})}
           isActive={
-            // 做这些操作的时候进行选择
             canvasState.mode === CanvasMode.None ||
             canvasState.mode === CanvasMode.Translating ||
             canvasState.mode === CanvasMode.SelectionNet ||

@@ -16,6 +16,7 @@ export enum LayerType {
   Text,
   Note,
 }
+// 定义图层
 export type Layer =
   | RectangleLayer
   | EllipseLayer
