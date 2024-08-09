@@ -4,11 +4,11 @@
 import { Info } from "./info"
 import { Participants } from "./participant"
 import { Toolbar } from './toolbar'
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { Camera, CanvasMode, CanvasState, Color, LayerType, Point } from "@/types/canvas"
-import { useHistory,useCanRedo,useCanUndo,useMutation, useStorage } from "@/liveblocks.config";
+import { useHistory,useCanRedo,useCanUndo,useMutation, useStorage, useOther, useOthersMapped } from "@/liveblocks.config";
 import { CursorsPresence } from "./cursors-presence"
-import { pointerEventToCanvasPoint } from "@/lib/utils"
+import { connectionIdToColor, pointerEventToCanvasPoint } from "@/lib/utils"
 import {nanoid} from 'nanoid'
 import { LiveObject } from "@liveblocks/client"
 import { LayerPreview } from './layer-preview'
@@ -21,6 +21,7 @@ interface CanvasProps {
 export const Canvas = ({
     boardId
 }: CanvasProps) => {
+
     const layerIds = useStorage((root)=>root.layerIds)
 
     // 设置画板状态
@@ -29,7 +30,6 @@ export const Canvas = ({
     })
     // 初始化相机状态
     const [camera, setCamera] = useState<Camera>({ x: 0, y: 0 })
-    
     const [lastUsedColor, setLastUsedColor] = useState<Color>({
         r: 0,
         g: 0,
@@ -69,7 +69,7 @@ export const Canvas = ({
               selection: [layerId],
             },
             {
-              addToHistory: true,
+              addToHistory: true, //添加到history中，undo和redo就可以使用
             }
         )
         // 插入完回到None
@@ -93,7 +93,7 @@ export const Canvas = ({
     ) => {
             e.preventDefault()
             const current = pointerEventToCanvasPoint(e, camera)
-            // 更新Camera位置
+            // 更新光标位置
             setMyPresence({cursor:current})
 
         },[]
@@ -104,7 +104,7 @@ export const Canvas = ({
     ) => {
         setMyPresence({cursor:null})
     }, [])
-    // 鼠标点击
+    // 鼠标按下抬起（这里只针对哪些图形）
     const onPointerUp = useMutation((
         { },
         e
@@ -126,9 +126,54 @@ export const Canvas = ({
         history,
         insertLayer
     ])
+    const onLayerPointerDown = useMutation((
+        { self, setMyPresence },
+        e: React.PointerEvent,
+        layerId:string
+    ) => {
+        // 排除插入点击和画笔点击（也就是只有当我们选择空闲：None的时候去进行点击才会触发）
+        if (canvasState.mode === CanvasMode.Inserting || canvasState.mode === CanvasMode.Pencil) {
+            return;
+        }
+        history.pause();
+        e.stopPropagation()
 
-
-
+        
+        const point = pointerEventToCanvasPoint(e, camera)
+        // 如果selection中没有选中的这个图层就加入并添加历史
+      if (!self.presence.selection.includes(layerId)) {
+        setMyPresence(
+          {
+            selection: [layerId],
+          },
+          {
+            addToHistory: true,
+          }
+        )
+        }
+        // 更新成平移状态（Translating）
+      setCanvasState({
+        mode: CanvasMode.Translating,
+        current: point,
+      })
+    },[setCanvasState, camera, history, canvasState.mode])
+    const selections = useOthersMapped((other) => other.presence.selection)
+    console.log(selections,"selectionsselectionsselectionsselectionsselections")
+    //当点击一个图层selection变化，然后layerIdsToColorSelection进行计算，改变selectionColor，实现点击改变图层stroke颜色
+    // 计算出一个layerIdsToColorSelection对象，里面是layerId对应的随机颜色值（基于connectionId）
+    const layerIdsToColorSelection = useMemo(() => {
+        const layerIdsToColorSelection: Record<string, string> = {}
+    
+        for (const user of selections) {
+          const [connectionId, selection] = user
+    
+          for (const layerId of selection) {
+            layerIdsToColorSelection[layerId] = connectionIdToColor(connectionId)
+          }
+        }
+    
+        return layerIdsToColorSelection
+      }, [selections]) 
     return (
         <main
             className="h-full w-full relative bg-neutral-100 touch-none"
@@ -161,10 +206,10 @@ export const Canvas = ({
                         <LayerPreview
                             key={layerId}
                             id={layerId}
-                            // onLayerPointerDown={onLayerPointerDown}
-                            // selectionColor={layerIdsToColorSelection[layerId]}
-                            onLayerPointerDown={()=>{}}
-                            selectionColor="#000"
+                            onLayerPointerDown={onLayerPointerDown}
+                            selectionColor={layerIdsToColorSelection[layerId]}
+   
+
                         />
                     ))}
                     <CursorsPresence/>
