@@ -19,9 +19,8 @@ export const SelectionBox = memo(
       (root) =>
         soleLayerId && root.layers.get(soleLayerId)?.type !== LayerType.Path
     );
-
+  // 判断是否选中
     const bounds = useSelectionBounds();
-
     if (!bounds) {
       return null;
     }
