@@ -1,3 +1,4 @@
+// 找选中元素最小边框
 import { useSelf, useStorage } from "@/liveblocks.config";
 import { Layer, XYWH } from "@/types/canvas";
 import { shallow } from "@liveblocks/client";
@@ -41,7 +42,7 @@ const boundingBox = (layers: Layer[]): XYWH | null => {
 
 export const useSelectionBounds = () => {
   const selection = useSelf((me) => me.presence.selection);
-
+  console.log(selection,"myselectionmyselectionmyselectionmyselectionmyselectionmyselection")
   return useStorage((root) => {
     const selectedLayers = selection
       .map((layerId) => root.layers.get(layerId)!)

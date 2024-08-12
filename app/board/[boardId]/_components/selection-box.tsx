@@ -2,12 +2,12 @@
 import { useSelectionBounds } from "@/hooks/use-selection-bounds";
 import { useSelf, useStorage } from "@/liveblocks.config";
 import { LayerType, Side, XYWH } from "@/types/canvas";
-// 选中组件
+// 选中外框组件
 import { memo } from "react";
 interface SelectionBoxProps {
   onResizeHandlePointerDown: (corner: Side, initialBounds: XYWH) => void;
 }
-// 定义手柄数量
+// 定义手柄宽度 
 const HANDLE_WIDTH = 8;
 export const SelectionBox = memo(
   ({ onResizeHandlePointerDown }: SelectionBoxProps) => {
@@ -44,7 +44,7 @@ export const SelectionBox = memo(
               x={0}
               y={0}
               style={{
-                cursor: "nwse-resize",
+                cursor: "nwse-resize", //触碰形状
                 width: `${HANDLE_WIDTH}px`,
                 height: `${HANDLE_WIDTH}px`,
                 transform: `translate(${bounds.x - HANDLE_WIDTH / 2}px, ${
