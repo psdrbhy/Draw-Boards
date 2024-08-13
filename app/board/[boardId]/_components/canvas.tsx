@@ -27,6 +27,7 @@ import {
 import { CursorsPresence } from "./cursors-presence";
 import {
   connectionIdToColor,
+  findIntersectingLayersWithRectangle,
   pointerEventToCanvasPoint,
   resizeBounds,
 } from "@/lib/utils";
@@ -37,6 +38,7 @@ import { SelectionBox } from "./selection-box";
 import { SelectionTools } from "./selection-tools";
 
 const MAX_LAYERS = 100;
+const SELECTION_NET = 5
 interface CanvasProps {
   boardId: string;
 }
@@ -154,6 +156,47 @@ export const Canvas = ({ boardId }: CanvasProps) => {
       setMyPresence({ selection: [] }, { addToHistory: true });
     }
   }, []);
+  // 多选图层
+  const startMultiSelection = useCallback((
+    current: Point,
+    origin: Point
+  ) => {
+    if (Math.abs(current.x - origin.x) + Math.abs(current.y - origin.y) > SELECTION_NET) {
+      setCanvasState({
+        mode: CanvasMode.SelectionNet,
+        current,
+        origin,
+      })
+    }
+  }, [])
+  const updateSelectionNet = useMutation(
+    ({ storage, setMyPresence }, current: Point, origin: Point) => {
+      const layers = storage.get('layers').toImmutable()
+      console.log("cccccccccc")
+      setCanvasState({
+        mode: CanvasMode.SelectionNet,
+        current,
+        origin,
+      })
+
+      const ids = findIntersectingLayersWithRectangle(
+        layerIds,
+        layers,
+        origin,
+        current
+      )
+
+      setMyPresence(
+        {
+          selection: ids,
+        },
+        {
+          addToHistory: true,
+        }
+      )
+    },
+    []
+  )
   // 给其他人的点击图层添加外框（不同于自己点击的外框）
   const selections = useOthersMapped((other) => other.presence.selection);
   //当点击一个图层selection变化，然后layerIdsToColorSelection进行计算，改变selectionColor，实现点击改变图层stroke颜色
@@ -185,11 +228,19 @@ export const Canvas = ({ boardId }: CanvasProps) => {
       e.preventDefault();
       // 获取最新xy轴
       const current = pointerEventToCanvasPoint(e, camera);
-      // 图层移动处理
-      if (canvasState.mode === CanvasMode.Translating) {
+      // 画布按下处理
+      if (canvasState.mode === CanvasMode.Pressing) {
+        startMultiSelection(current,canvasState.origin)
+      }
+      // 多选图层
+      else if (canvasState.mode === CanvasMode.SelectionNet) {
+        updateSelectionNet(current,canvasState.origin)
+      }
+      // 移动图层处理
+      else if (canvasState.mode === CanvasMode.Translating) {
         translateSelectedLayers(current);
       }
-      // 图层大小变化处理
+      // 变化图层大小处理
       else if (canvasState.mode === CanvasMode.Resizing) {
         resizeSelectedLayer(current);
       }
@@ -320,6 +371,16 @@ export const Canvas = ({ boardId }: CanvasProps) => {
           ))}
           {/* 外框 */}
           <SelectionBox onResizeHandlePointerDown={onResizeHandlePointerDown} />
+          {canvasState.mode === CanvasMode.SelectionNet &&
+            canvasState.current != null && (
+              <rect
+                className=" fill-blue-500/5 stroke-blue-500 stroke-1"
+                x={Math.min(canvasState.origin.x, canvasState.current.x)}
+                y={Math.min(canvasState.origin.y, canvasState.current.y)}
+                width={Math.abs(canvasState.origin.x - canvasState.current.x)}
+                height={Math.abs(canvasState.origin.y - canvasState.current.y)}
+              />
+            )}
           <CursorsPresence />
         </g>
       </svg>
