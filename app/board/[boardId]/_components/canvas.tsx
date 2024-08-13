@@ -216,12 +216,11 @@ export const Canvas = ({ boardId }: CanvasProps) => {
   }, [selections]);
   // 鼠标滚轮
   const onWheel = useCallback((e: React.WheelEvent) => {
-    // 更新
-    setCamera(() => ({
+    setCamera((camera) => ({
       x: camera.x - e.deltaX,
       y: camera.y - e.deltaY,
-    }));
-  }, []);
+    }))
+  }, [])
   // 鼠标滑动
   const onPointerMove = useMutation(
     ({ setMyPresence }, e: React.PointerEvent) => {
