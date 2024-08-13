@@ -9,7 +9,7 @@ import { useDeleteLayers } from "@/hooks/use-delete-layer";
 
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2,BringToFront,SendToBack} from "lucide-react";
 
 interface SelectionToolsProps {
   camera: Camera;
@@ -33,7 +33,50 @@ export const SelectionTools = memo(
     );
     // 删除图层
     const deleteLayers = useDeleteLayers();
+    // 改变图层显示级
+    // 向上移动（通过改变liveLayerIds中的排序实现）
+    const moveToFront = useMutation(
+      ({ storage }) => {
+        const liveLayerIds = storage.get('layerIds')
+        const indices: number[] = []
 
+        const arr = liveLayerIds.toArray()
+        // 同时在选中列表和图层列表中
+        for (let i = 0; i < arr.length; i++) {
+          if (selection.includes(arr[i])) {
+            indices.push(i)
+          }
+        }
+
+        for (let i = indices.length - 1; i >= 0; i--) {
+          liveLayerIds.move(
+            indices[i],
+            arr.length - 1 - (indices.length - 1 - i)
+          )
+        }
+      },
+      [selection]
+    )
+    // 向下移动
+    const moveToBack = useMutation(
+      ({ storage }) => {
+        const liveLayerIds = storage.get('layerIds')
+        const indices: number[] = []
+
+        const arr = liveLayerIds.toArray()
+
+        for (let i = 0; i < arr.length; i++) {
+          if (selection.includes(arr[i])) {
+            indices.push(i)
+          }
+        }
+
+        for (let i = 0; i < indices.length; i++) {
+          liveLayerIds.move(indices[i], i)
+        }
+      },
+      [selection]
+    )
     const selectionBounds = useSelectionBounds();
     if (!selectionBounds) {
       return null;
@@ -53,6 +96,18 @@ export const SelectionTools = memo(
         }}
       >
         <ColorPicker onChange={setFill} />
+        <div className="flex flex-col gap-y-0.5">
+          <Hint label="Bring to front">
+            <Button variant={'board'} size={'icon'} onClick={moveToFront}>
+              <BringToFront />
+            </Button>
+          </Hint>
+          <Hint label="Send to back" side="bottom">
+            <Button variant={'board'} size={'icon'} onClick={moveToBack}>
+              <SendToBack />
+            </Button>
+          </Hint>
+        </div>
         <div className=" flex items-center pl-2 ml-2 border-l border-neutral-200">
           <Hint label="Delete">
             <Button variant={"board"} size={"icon"} onClick={deleteLayers}>
