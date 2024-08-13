@@ -4,7 +4,7 @@
 import { Info } from "./info";
 import { Participants } from "./participant";
 import { Toolbar } from "./toolbar";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Camera,
   CanvasMode,
@@ -23,11 +23,15 @@ import {
   useStorage,
   useOther,
   useOthersMapped,
+  useSelf,
+  useDeleteComment,
 } from "@/liveblocks.config";
 import { CursorsPresence } from "./cursors-presence";
 import {
+  colorToCss,
   connectionIdToColor,
   findIntersectingLayersWithRectangle,
+  penPointsToPathLayer,
   pointerEventToCanvasPoint,
   resizeBounds,
 } from "@/lib/utils";
@@ -36,9 +40,12 @@ import { LiveObject } from "@liveblocks/client";
 import { LayerPreview } from "./layer-preview";
 import { SelectionBox } from "./selection-box";
 import { SelectionTools } from "./selection-tools";
+import { Path } from "./path";
+import { useDisableScrollBounce } from "@/hooks/use-disable-scroll-bounce";
+import { useDeleteLayers } from "@/hooks/use-delete-layer";
 
 const MAX_LAYERS = 100;
-const SELECTION_NET = 5
+const SELECTION_NET = 5;
 interface CanvasProps {
   boardId: string;
 }
@@ -46,6 +53,7 @@ interface CanvasProps {
 export const Canvas = ({ boardId }: CanvasProps) => {
   const layerIds = useStorage((root) => root.layerIds);
 
+  const pencilDraft = useSelf((me) => me.presence.pencilDraft);
   // 设置画板状态
   const [canvasState, setCanvasState] = useState<CanvasState>({
     mode: CanvasMode.None,
@@ -57,7 +65,7 @@ export const Canvas = ({ boardId }: CanvasProps) => {
     g: 0,
     b: 0,
   });
-
+  useDisableScrollBounce()
   const canUndo = useCanUndo();
   const canRedo = useCanRedo();
   const history = useHistory();
@@ -157,34 +165,34 @@ export const Canvas = ({ boardId }: CanvasProps) => {
     }
   }, []);
   // 多选图层
-  const startMultiSelection = useCallback((
-    current: Point,
-    origin: Point
-  ) => {
-    if (Math.abs(current.x - origin.x) + Math.abs(current.y - origin.y) > SELECTION_NET) {
+  const startMultiSelection = useCallback((current: Point, origin: Point) => {
+    if (
+      Math.abs(current.x - origin.x) + Math.abs(current.y - origin.y) >
+      SELECTION_NET
+    ) {
       setCanvasState({
         mode: CanvasMode.SelectionNet,
         current,
         origin,
-      })
+      });
     }
-  }, [])
+  }, []);
   const updateSelectionNet = useMutation(
     ({ storage, setMyPresence }, current: Point, origin: Point) => {
-      const layers = storage.get('layers').toImmutable()
-      console.log("cccccccccc")
+      const layers = storage.get("layers").toImmutable();
+      console.log("cccccccccc");
       setCanvasState({
         mode: CanvasMode.SelectionNet,
         current,
         origin,
-      })
+      });
 
       const ids = findIntersectingLayersWithRectangle(
         layerIds,
         layers,
         origin,
         current
-      )
+      );
 
       setMyPresence(
         {
@@ -193,10 +201,71 @@ export const Canvas = ({ boardId }: CanvasProps) => {
         {
           addToHistory: true,
         }
-      )
+      );
     },
     []
-  )
+  );
+  // 画笔
+  const startDrawing = useMutation(
+    ({ setMyPresence }, point: Point, pressure: number) => {
+      // 初始值
+      setMyPresence({
+        pencilDraft: [[point.x, point.y, pressure]],
+        penColor: lastUsedColor,
+      });
+    },
+    [lastUsedColor]
+  );
+  const continueDrawing = useMutation(
+    ({ self, setMyPresence }, point: Point, e: React.PointerEvent) => {
+      const { pencilDraft } = self.presence;
+      if (
+        canvasState.mode !== CanvasMode.Pencil ||
+        e.buttons !== 1 ||
+        pencilDraft == null
+      ) {
+        return;
+      }
+      // 更新pencilDraft
+      setMyPresence({
+        cursor: point,
+        pencilDraft:
+          pencilDraft.length === 1 &&
+          pencilDraft[0][0] === point.x &&
+          pencilDraft[0][1] === point.y
+            ? pencilDraft
+            : [...pencilDraft, [point.x, point.y, e.pressure]],
+      });
+    },
+    [canvasState.mode]
+  );
+
+  const insertPath = useMutation(
+    ({ storage, self, setMyPresence }) => {
+      const liveLayers = storage.get("layers");
+      const { pencilDraft } = self.presence;
+      if (
+        pencilDraft == null ||
+        pencilDraft.length < 2 ||
+        liveLayers.size >= MAX_LAYERS
+      ) {
+        setMyPresence({ pencilDraft: null });
+        return;
+      }
+      const id = nanoid();
+      // 插入画笔图层
+      liveLayers.set(
+        id,
+        new LiveObject(penPointsToPathLayer(pencilDraft, lastUsedColor))
+      );
+      const liveLayerIds = storage.get("layerIds");
+      liveLayerIds.push(id);
+      setMyPresence({ pencilDraft: null });
+      setCanvasState({ mode: CanvasMode.Pencil });
+    },
+    [lastUsedColor]
+  );
+
   // 给其他人的点击图层添加外框（不同于自己点击的外框）
   const selections = useOthersMapped((other) => other.presence.selection);
   //当点击一个图层selection变化，然后layerIdsToColorSelection进行计算，改变selectionColor，实现点击改变图层stroke颜色
@@ -219,8 +288,24 @@ export const Canvas = ({ boardId }: CanvasProps) => {
     setCamera((camera) => ({
       x: camera.x - e.deltaX,
       y: camera.y - e.deltaY,
-    }))
-  }, [])
+    }));
+  }, []);
+  //鼠标按下
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      const point = pointerEventToCanvasPoint(e, camera);
+      if (canvasState.mode === CanvasMode.Inserting) {
+        return;
+      }
+      // 处理画笔按下
+      if (canvasState.mode === CanvasMode.Pencil) {
+        startDrawing(point, e.pressure);
+        return;
+      }
+      setCanvasState({ origin: point, mode: CanvasMode.Pressing });
+    },
+    [camera, canvasState.mode, setCanvasState, startDrawing]
+  );
   // 鼠标滑动
   const onPointerMove = useMutation(
     ({ setMyPresence }, e: React.PointerEvent) => {
@@ -229,11 +314,11 @@ export const Canvas = ({ boardId }: CanvasProps) => {
       const current = pointerEventToCanvasPoint(e, camera);
       // 画布按下处理
       if (canvasState.mode === CanvasMode.Pressing) {
-        startMultiSelection(current,canvasState.origin)
+        startMultiSelection(current, canvasState.origin);
       }
       // 多选图层
       else if (canvasState.mode === CanvasMode.SelectionNet) {
-        updateSelectionNet(current,canvasState.origin)
+        updateSelectionNet(current, canvasState.origin);
       }
       // 移动图层处理
       else if (canvasState.mode === CanvasMode.Translating) {
@@ -243,15 +328,15 @@ export const Canvas = ({ boardId }: CanvasProps) => {
       else if (canvasState.mode === CanvasMode.Resizing) {
         resizeSelectedLayer(current);
       }
+      // 画笔处理
+      else if (canvasState.mode === CanvasMode.Pencil) {
+        continueDrawing(current, e);
+      }
       // 更新光标位置
       setMyPresence({ cursor: current });
     },
-    [camera, canvasState, resizeSelectedLayer]
+    [camera, canvasState, resizeSelectedLayer, continueDrawing,startMultiSelection,updateSelectionNet]
   );
-  //鼠标离开（当鼠标离开当前页的时候，置空）
-  const onPointLeave = useMutation(({ setMyPresence }) => {
-    setMyPresence({ cursor: null });
-  }, []);
   // 鼠标按下抬起（这里只针对哪些图形）
   const onPointerUp = useMutation(
     ({}, e) => {
@@ -265,6 +350,8 @@ export const Canvas = ({ boardId }: CanvasProps) => {
         setCanvasState({
           mode: CanvasMode.None,
         });
+      } else if (canvasState.mode === CanvasMode.Pencil) {
+        insertPath();
       }
       // 如果你的状态是Inserting就进行插入（也就是点击工具栏图形的时候）
       else if (canvasState.mode === CanvasMode.Inserting) {
@@ -277,19 +364,21 @@ export const Canvas = ({ boardId }: CanvasProps) => {
         });
       }
     },
-    [camera, canvasState, history, insertLayer, cancelSelectLayers]
+    [
+      canvasState,
+      camera,
+      canvasState,
+      history,
+      insertLayer,
+      cancelSelectLayers,
+      insertPath,
+      setCanvasState
+    ]
   );
-  //按下画布
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      const point = pointerEventToCanvasPoint(e, camera);
-      if (canvasState.mode === CanvasMode.Inserting) {
-        return;
-      }
-      setCanvasState({ origin: point, mode: CanvasMode.Pressing });
-    },
-    [camera, canvasState.mode, setCanvasState]
-  );
+  //鼠标离开（当鼠标离开当前页的时候，置空）
+  const onPointLeave = useMutation(({ setMyPresence }) => {
+    setMyPresence({ cursor: null });
+  }, []);
   // 点击拉动外边框
   const onResizeHandlePointerDown = useCallback(
     (corner: Side, initialBounds: XYWH) => {
@@ -337,6 +426,28 @@ export const Canvas = ({ boardId }: CanvasProps) => {
     },
     [setCanvasState, camera, history, canvasState.mode]
   );
+  //添加撤回快捷键
+  const deleteLayers = useDeleteLayers();
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      switch (e.key) {
+        case "z": {
+          if (e.ctrlKey || e.metaKey) {
+            if (e.shiftKey) {
+              history.redo();
+            } else {
+              history.undo()
+            }
+            break;
+          }
+        }
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener('keydown',onKeyDown)
+    }
+  },[deleteLayers,history])
   return (
     <main className="h-full w-full relative bg-neutral-100 touch-none">
       <Info boardId={boardId} />
@@ -381,6 +492,14 @@ export const Canvas = ({ boardId }: CanvasProps) => {
               />
             )}
           <CursorsPresence />
+          {pencilDraft != null && pencilDraft.length > 0 && (
+            <Path
+              points={pencilDraft}
+              fill={colorToCss(lastUsedColor)}
+              x={0}
+              y={0}
+            />
+          )}
         </g>
       </svg>
     </main>

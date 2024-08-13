@@ -58,7 +58,9 @@ const client = createClient({
 // `user.presence` property. Must be JSON-serializable.
 type Presence = {
   cursor: { x: number, y: number } | null, //光标xy位置
-  selection:string[] //选择范围
+  selection: string[], //已经选中的id
+  pencilDraft: [x: number, y: number, pressure: number][] | null,
+  penColor:Color | null
   // ...
 };
 
