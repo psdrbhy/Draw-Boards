@@ -34,6 +34,7 @@ import { nanoid } from "nanoid";
 import { LiveObject } from "@liveblocks/client";
 import { LayerPreview } from "./layer-preview";
 import { SelectionBox } from "./selection-box";
+import { SelectionTools } from "./selection-tools";
 
 const MAX_LAYERS = 100;
 interface CanvasProps {
@@ -101,33 +102,32 @@ export const Canvas = ({ boardId }: CanvasProps) => {
       history.resume();
     },
     [lastUsedColor]
-    );
-    // 移动图层
-    const translateSelectedLayers = useMutation((
-        { storage, self },
-        point:Point
-    ) => {
-        if (canvasState.mode !== CanvasMode.Translating) {
-            return;
+  );
+  // 移动图层
+  const translateSelectedLayers = useMutation(
+    ({ storage, self }, point: Point) => {
+      if (canvasState.mode !== CanvasMode.Translating) {
+        return;
+      }
+      // 初始化偏移量,point:最新移动的point,canvasState.current:点击时候的point
+      const offset = {
+        x: point.x - canvasState.current.x,
+        y: point.y - canvasState.current.y,
+      };
+      const liveLayers = storage.get("layers");
+      for (const id of self.presence.selection) {
+        const layer = liveLayers.get(id);
+        if (layer) {
+          layer.update({
+            x: layer.get("x") + offset.x,
+            y: layer.get("y") + offset.y,
+          });
         }
-        // 初始化偏移量,point:最新移动的point,canvasState.current:点击时候的point
-        const offset = {
-            x: point.x - canvasState.current.x,
-            y:point.y-canvasState.current.y
-        }
-        const liveLayers = storage.get('layers')
-        for (const id of self.presence.selection) {
-            const layer = liveLayers.get(id);
-            if (layer) {
-                layer.update({
-                    x: layer.get("x") + offset.x,
-                    y:layer.get("y") + offset.y
-                })
-            }
-        }
-        setCanvasState({mode:CanvasMode.Translating,current:point})
-        
-    },[canvasState])
+      }
+      setCanvasState({ mode: CanvasMode.Translating, current: point });
+    },
+    [canvasState]
+  );
   // Resize图层
   const resizeSelectedLayer = useMutation(
     ({ storage, self }, point: Point) => {
@@ -148,6 +148,29 @@ export const Canvas = ({ boardId }: CanvasProps) => {
     },
     [canvasState]
   );
+  // 取消选中图层
+  const cancelSelectLayers = useMutation(({ self, setMyPresence }) => {
+    if (self.presence.selection.length > 0) {
+      setMyPresence({ selection: [] }, { addToHistory: true });
+    }
+  }, []);
+  // 给其他人的点击图层添加外框（不同于自己点击的外框）
+  const selections = useOthersMapped((other) => other.presence.selection);
+  //当点击一个图层selection变化，然后layerIdsToColorSelection进行计算，改变selectionColor，实现点击改变图层stroke颜色
+  // 计算出一个layerIdsToColorSelection对象，里面是layerId对应的随机颜色值（基于connectionId）
+  const layerIdsToColorSelection = useMemo(() => {
+    const layerIdsToColorSelection: Record<string, string> = {};
+
+    for (const user of selections) {
+      const [connectionId, selection] = user;
+
+      for (const layerId of selection) {
+        layerIdsToColorSelection[layerId] = connectionIdToColor(connectionId);
+      }
+    }
+
+    return layerIdsToColorSelection;
+  }, [selections]);
   // 鼠标滚轮
   const onWheel = useCallback((e: React.WheelEvent) => {
     // 更新
@@ -159,17 +182,17 @@ export const Canvas = ({ boardId }: CanvasProps) => {
   // 鼠标滑动
   const onPointerMove = useMutation(
     ({ setMyPresence }, e: React.PointerEvent) => {
-          e.preventDefault();
-        // 获取最新xy轴
-          const current = pointerEventToCanvasPoint(e, camera);
+      e.preventDefault();
+      // 获取最新xy轴
+      const current = pointerEventToCanvasPoint(e, camera);
       // 图层移动处理
-          if (canvasState.mode === CanvasMode.Translating) {
-            translateSelectedLayers(current)
+      if (canvasState.mode === CanvasMode.Translating) {
+        translateSelectedLayers(current);
       }
       // 图层大小变化处理
       else if (canvasState.mode === CanvasMode.Resizing) {
         resizeSelectedLayer(current);
-          }
+      }
       // 更新光标位置
       setMyPresence({ cursor: current });
     },
@@ -183,8 +206,18 @@ export const Canvas = ({ boardId }: CanvasProps) => {
   const onPointerUp = useMutation(
     ({}, e) => {
       const point = pointerEventToCanvasPoint(e, camera);
-      // 如果你的状态是Inserting就进行插入（也就是点击图形的时候）
-      if (canvasState.mode === CanvasMode.Inserting) {
+      if (
+        canvasState.mode === CanvasMode.None ||
+        canvasState.mode === CanvasMode.Pressing
+      ) {
+        //   取消选中并且更新状态为None
+        cancelSelectLayers();
+        setCanvasState({
+          mode: CanvasMode.None,
+        });
+      }
+      // 如果你的状态是Inserting就进行插入（也就是点击工具栏图形的时候）
+      else if (canvasState.mode === CanvasMode.Inserting) {
         //子组件进行设置会影响到这里的结果吗？
         insertLayer(canvasState.layerType, point);
       } else {
@@ -194,7 +227,18 @@ export const Canvas = ({ boardId }: CanvasProps) => {
         });
       }
     },
-    [camera, canvasState, history, insertLayer]
+    [camera, canvasState, history, insertLayer, cancelSelectLayers]
+  );
+  //按下画布
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      const point = pointerEventToCanvasPoint(e, camera);
+      if (canvasState.mode === CanvasMode.Inserting) {
+        return;
+      }
+      setCanvasState({ origin: point, mode: CanvasMode.Pressing });
+    },
+    [camera, canvasState.mode, setCanvasState]
   );
   // 点击拉动外边框
   const onResizeHandlePointerDown = useCallback(
@@ -209,8 +253,8 @@ export const Canvas = ({ boardId }: CanvasProps) => {
       });
     },
     []
-    );
-    // 点击图层
+  );
+  // 点击图层并选中
   const onLayerPointerDown = useMutation(
     ({ self, setMyPresence }, e: React.PointerEvent, layerId: string) => {
       // 排除插入点击和画笔点击（也就是只有当我们选择空闲：None的时候去进行点击才会触发）
@@ -243,23 +287,6 @@ export const Canvas = ({ boardId }: CanvasProps) => {
     },
     [setCanvasState, camera, history, canvasState.mode]
   );
-  // 给其他人的点击图层添加外框（不同于自己点击的外框）
-  const selections = useOthersMapped((other) => other.presence.selection);
-  //当点击一个图层selection变化，然后layerIdsToColorSelection进行计算，改变selectionColor，实现点击改变图层stroke颜色
-  // 计算出一个layerIdsToColorSelection对象，里面是layerId对应的随机颜色值（基于connectionId）
-  const layerIdsToColorSelection = useMemo(() => {
-    const layerIdsToColorSelection: Record<string, string> = {};
-
-    for (const user of selections) {
-      const [connectionId, selection] = user;
-
-      for (const layerId of selection) {
-        layerIdsToColorSelection[layerId] = connectionIdToColor(connectionId);
-      }
-    }
-
-    return layerIdsToColorSelection;
-  }, [selections]);
   return (
     <main className="h-full w-full relative bg-neutral-100 touch-none">
       <Info boardId={boardId} />
@@ -272,6 +299,7 @@ export const Canvas = ({ boardId }: CanvasProps) => {
         undo={history.undo}
         redo={history.redo}
       />
+      <SelectionTools camera={camera} setLastUsedColor={setLastUsedColor} />
       {/* 绘制板 */}
       <svg
         className="h-[100vh] w-[100vw]"
@@ -279,6 +307,7 @@ export const Canvas = ({ boardId }: CanvasProps) => {
         onPointerMove={onPointerMove}
         onPointerLeave={onPointLeave}
         onPointerUp={onPointerUp}
+        onPointerDown={onPointerDown}
       >
         <g style={{ transform: `translate(${camera.x}px,,${camera.y}px)` }}>
           {layerIds.map((layerId) => (
