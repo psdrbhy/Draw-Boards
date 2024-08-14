@@ -288,8 +288,8 @@ export const Canvas = ({ boardId }: CanvasProps) => {
     setCamera((camera) => ({
       x: camera.x - e.deltaX,
       y: camera.y - e.deltaY,
-    }));
-  }, []);
+    }))
+  }, [])
   //鼠标按下
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -431,9 +431,9 @@ export const Canvas = ({ boardId }: CanvasProps) => {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       switch (e.key) {
-        case "Backspace":
-          deleteLayers();
-          break;
+        // case "Backspace": //需要兼容text的删除文字
+        //   deleteLayers(); 
+        //   break;
         case "z": {
           if (e.ctrlKey || e.metaKey) {
             if (e.shiftKey) {
@@ -466,14 +466,16 @@ export const Canvas = ({ boardId }: CanvasProps) => {
       <SelectionTools camera={camera} setLastUsedColor={setLastUsedColor} />
       {/* 绘制板 */}
       <svg
-        className="h-[100vh] w-[100vw]"
+        className="h-screen w-screen"
         onWheel={onWheel}
         onPointerMove={onPointerMove}
         onPointerLeave={onPointLeave}
         onPointerUp={onPointerUp}
         onPointerDown={onPointerDown}
       >
-        <g style={{ transform: `translate(${camera.x}px,,${camera.y}px)` }}>
+        <g  style={{
+            transform: `translate(${camera.x}px, ${camera.y}px)`,
+          }}>
           {layerIds.map((layerId) => (
             <LayerPreview
               key={layerId}
